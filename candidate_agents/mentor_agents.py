@@ -1,19 +1,23 @@
-from langchain.llms import OpenAI, Anthropic
-from langchain.llms import VertexAI
+from langchain_community.llms import OpenAI, Anthropic
+from langchain_google_vertexai import VertexAI
 from langchain.chains import ConversationChain
 from langchain.memory import ConversationBufferMemory
 from langchain.prompts import PromptTemplate
 import psycopg2
 from psycopg2 import sql
+from dotenv import load_dotenv
 import os
 
 
 # Set your Google Cloud credentials
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "/path/to/your/google-credentials.json"
+env = os.getenv('ENV', 'development')  # Default to 'development' if ENV is not set
+dotenv_file = f'.env.{env}'
+load_dotenv(dotenv_file)
 
 
 class AIMentorPrototype:
-    def __init__(self, model_name="gpt-4"):
+    def __init__(self, model_name="vertex"):
         self.model_name = model_name
         self.llm = self._initialize_llm()
         self.memory = ConversationBufferMemory()
@@ -40,11 +44,7 @@ class AIMentorPrototype:
 
     def _initialize_database(self):
         conn = psycopg2.connect(
-            dbname="your_database_name",
-            user="your_username",
-            password="your_password",
-            host="your_host",
-            port="your_port"
+            os.getenv('DB_URL')
         )
         return conn
 
@@ -110,7 +110,7 @@ class AIMentorPrototype:
         self.db_connection.close()
 
 # Usage example
-ai_mentor = AIMentorPrototype(model_name="gpt-4")
+ai_mentor = AIMentorPrototype(model_name="vertex")
 user_input = "I'm interested in starting a sustainable fashion business but I'm not sure where to begin."
 interests = ai_mentor.identify_user_interest(user_input)
 courses = ai_mentor.recommend_courses(interests)
