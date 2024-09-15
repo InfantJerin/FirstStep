@@ -1,0 +1,12 @@
+# Python virtual environment
+
+
+# General Python venv patterns
+venv/
+env/
+*.pyc
+__pycache__/
+
+
+# any user specific files
+*.ps1
