@@ -1,0 +1,31 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme. -->
+    <style name="Base.Theme.FirstStep" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Customize your light theme here. -->
+        <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
+    </style>
+
+    <style name="Theme.FirstStep" parent="Base.Theme.FirstStep">
+        <item name="android:windowTranslucentStatus">true</item>
+        <item name="android:windowTranslucentNavigation">true</item>
+        <item name="android:fitsSystemWindows">true</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+
+        <item name="colorPrimary">@color/primary_color</item>
+        <item name="colorSecondary">@color/secondary_color</item>
+        <item name="colorTertiary">@color/tertiary_color</item>
+        <item name="colorError">@color/error_color</item>
+        <item name="colorPrimaryContainer">@color/primary_container_color</item>
+        <item name="colorSecondaryContainer">@color/secondary_container_color</item>
+        <item name="colorTertiaryContainer">@color/tertiary_container_color</item>
+        <item name="colorErrorContainer">@color/error_container_color</item>
+        <item name="colorSurface">@color/surface_color</item>
+        <item name="colorSurfaceBright">@color/surface_bright_color</item>
+        <item name="colorSurfaceDim">@color/surface_dim_color</item>
+        <item name="colorSurfaceInverse">@color/inverse_surface_color</item>
+
+        <item name="android:windowActionBarOverlay">true</item>
+        <item name="windowActionBarOverlay">true</item>
+    </style>
+</resources>
