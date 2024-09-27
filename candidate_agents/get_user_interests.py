@@ -1,7 +1,7 @@
 from langchain.agents import AgentType, initialize_agent
 from langchain.memory import ConversationBufferMemory
 from langchain_core.prompts import PromptTemplate
-from langchain.llms import  Anthropic
+
 from langchain_google_vertexai import ChatVertexAI, VertexAI
 
 from langchain.tools import Tool
@@ -13,15 +13,13 @@ vertexai.init(project="hack-poc-435717", location="us-east5")
 def get_user_info():
     return Tool(
         name="GetUserInfo",
-        func=lambda _: "This tool doesn't actually fetch data. It's a placeholder for the conversation.",
+        func=lambda _: "This is Jerin",
         description="Get user information through conversation"
     )
 
 def create_agent(llm_choice):
     if llm_choice.lower() == 'vertexai':
         llm = VertexAI()
-    elif llm_choice.lower() == 'claude':
-        llm = Anthropic(model="claude-2")
     else:
         raise ValueError("Invalid LLM choice. Choose 'vertexai' or 'claude'.")
 

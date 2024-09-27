@@ -4,9 +4,21 @@
 # General Python venv patterns
 venv/
 env/
+nenv/
 *.pyc
 __pycache__/
 
 
 # any user specific files
 *.ps1
+
+multi_agent/*
+fagents/*   
+candidate_agents/*
+logs/*  
+user_service/__pycache__/*
+user_service/usenv/*
+.vscode/*
+.qdrantdb/*
+.chainlit/*
+chainlit.md
