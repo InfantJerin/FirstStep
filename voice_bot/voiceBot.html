@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deepgram Real-Time Transcription with LLM & TTS</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        h1 { color: #007BFF; }
+        button { padding: 10px 20px; margin: 10px; background-color: #007BFF; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        button:disabled { background-color: #999; cursor: not-allowed; }
+        #transcription { margin-top: 20px; padding: 15px; border: 1px solid #ddd; background-color: #f9f9f9; min-height: 200px; white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+
+<h3>Audio Output:</h3>
+<audio id="audioPlayer" controls></audio>
+
+<h1>Deepgram Real-Time Transcription with LLM & TTS</h1>
+<button id="startBtn" onclick="startRecording()">Start Recording</button>
+<button id="stopBtn" onclick="stopRecording()" disabled>Stop Recording</button>
+
+<div id="transcription">Transcription will appear here...</div>
+
+<script src="https://unpkg.com/@deepgram/sdk"></script>
+<script>
+    let mediaRecorder;
+    let conversationHistory = [
+        { role: 'system', content: "All the subsequent questions and queries should be about MSMEs, their benefits and other credit or loan related details in India. So keep that in mind and keep answers grounded in that. do not entertain any other questions. be precise as this will be communicated to user over voice. " +
+                "Your first respose is meant for our customers. Give them an appropriate greeting and ask how can you help them. You must add a \'•\' symbol every 5 to 10 words at natural pauses where your response can be split for text to speech." }
+    ];
+
+    let is_finals = []; // To store finalized sentences from STT
+
+    const { createClient, LiveTranscriptionEvents } = deepgram;
+    const deepgramClient = createClient(''); // Replace with actual API key
+
+    // Function to start recording and stream to Deepgram for STT
+    async function startRecording() {
+        document.getElementById('startBtn').disabled = true;
+        document.getElementById('stopBtn').disabled = false;
+
+        // Access the microphone
+        const stream = await navigator.mediaDevices.getUserMedia({audio: true});
+        mediaRecorder = new MediaRecorder(stream, {mimeType: 'audio/webm'});
+
+        const deepgramSocket = deepgramClient.listen.live({
+            /*model: 'nova-2',
+            language: 'en-US',
+            // smart_format: true,
+            interim_results: true,
+            vad_events: true,
+            utterance_end_ms: 1000,
+            endpointing: false*/
+            language: 'en-US',
+            sample_rate: '8000',
+            model: 'nova-2',
+            punctuate: true,
+            interim_results: true,
+            endpointing: 200,
+            utterance_end_ms: 1000
+        });
+
+
+        deepgramSocket.on(LiveTranscriptionEvents.Open, () => {
+            deepgramSocket.on(LiveTranscriptionEvents.Close, () => {
+                console.log("Connection closed.");
+            });
+
+            deepgramSocket.on(LiveTranscriptionEvents.Metadata, (data) => {
+                console.log(`Deepgram Metadata: ${data}`);
+            });
+
+            deepgramSocket.on(LiveTranscriptionEvents.Transcript, (data) => {
+                const sentence = data.channel.alternatives[0].transcript;
+
+                if (sentence.length === 0) return;
+
+                if (data.is_final) {
+                    console.log(`Deepgram is_final: ${sentence}`);
+
+                    is_finals.push(sentence);
+                    if (data.speech_final) {
+                        const utterance = is_finals.join(' ');
+                        console.log(`Deepgram sppech finaleee: ${utterance}`);
+
+                        appendTranscription(utterance);
+                        sendMessageToLLM(utterance);
+                        is_finals = []; // Reset for the next sentence
+
+                    }
+                }
+            });
+
+            deepgramSocket.on(LiveTranscriptionEvents.UtteranceEnd, (data) => {
+                const utterance = is_finals.join(" ");
+                console.log(`Deepgram UtteranceEnd: ${utterance}`);
+                appendTranscription(utterance);
+                sendMessageToLLM(utterance);
+                is_finals = [];
+            });
+
+            deepgramSocket.on(LiveTranscriptionEvents.SpeechStarted, (data) => {
+                console.log("Deepgram SpeechStarted", data);
+            });
+
+            deepgramSocket.on(LiveTranscriptionEvents.Error, (err) => {
+                console.error('Error with Deepgram STT:', err);
+            });
+
+            // Send audio data to Deepgram STT
+            mediaRecorder.ondataavailable = (event) => {
+                deepgramSocket.send(event.data);
+            };
+
+            mediaRecorder.start(250); // Send audio data every 250ms
+        });
+    }
+
+    // Send the final transcript to LLM and get the response
+    async function sendToLLM(transcript) {
+        conversationHistory.push({ role: 'user', content: transcript });
+
+        try {
+            const response = await fetch('http://localhost:3000/vertex-ai', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(conversationHistory),
+            });
+
+            const data = await response.json();
+            const assistantMessage = data.assistantMessage;
+
+            // Add LLM response to conversation history and UI
+            conversationHistory.push({ role: 'assistant', content: assistantMessage });
+            appendTranscription(`Assistant: ${assistantMessage}`);
+
+            // Convert LLM response to speech using Deepgram TTS
+            synthesizeSpeech(assistantMessage);
+
+            console.log(assistantMessage);
+        } catch (error) {
+            console.error('Error communicating with LLM:', error);
+        }
+    }
+
+    // Function to synthesize speech using Deepgram TTS and play it in the browser
+    async function synthesizeSpeech(inputText) {
+        const response = await fetch("https://api.deepgram.com/v1/speak?model=aura-asteria-en", {
+            method: "POST",
+            headers: {
+                "Authorization": `Token 77d6ad7b788134866015b42a2f27c32ff3e18018`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                text: inputText
+            })
+        });
+
+        if (!response.ok) {
+            console.error("Error:", response.statusText);
+            alert("Error synthesizing speech");
+            return;
+        }
+
+        const audioBlob = await response.blob();
+        const audioUrl = URL.createObjectURL(audioBlob);
+
+        const audioPlayer = document.getElementById('audioPlayer');
+        audioPlayer.src = audioUrl;
+        audioPlayer.play();
+    }
+
+    // Function to stop recording
+    function stopRecording() {
+        mediaRecorder.stop();
+        document.getElementById('startBtn').disabled = false;
+        document.getElementById('stopBtn').disabled = true;
+    }
+
+    // Append transcriptions to the UI
+    function appendTranscription(transcription) {
+        console.log('appending transcription', transcription);
+        const transcriptionDiv = document.getElementById('transcription');
+        transcriptionDiv.innerText += transcription + '\n';
+        transcriptionDiv.scrollTop = transcriptionDiv.scrollHeight;  // Scroll to the latest transcription
+    }
+
+    const ws = new WebSocket('ws://localhost:3000');
+
+    ws.onopen = () => {
+        console.log('Connected to WebSocket server');
+        ws.send(JSON.stringify(conversationHistory));
+        startRecording();
+    };
+
+    ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        const assistantMessage = data.assistantMessage;
+        if (assistantMessage) {
+
+            // Add the assistant's response to the conversation history
+            conversationHistory.push({ role: 'assistant', content: assistantMessage });
+
+            // Display the assistant's response in the UI
+            appendTranscription(`\n[Assistant]: ${assistantMessage}\n`);
+            // Convert LLM response to speech using Deepgram TTS
+
+            console.log('response received', assistantMessage);
+
+            synthesizeSpeech(assistantMessage);
+        }
+    };
+
+    function sendMessageToLLM(text) {
+        conversationHistory.push({ role: 'user', content: text });
+
+        ws.send(JSON.stringify(conversationHistory));
+    }
+
+    ws.onclose = () => {
+        console.log('Disconnected from WebSocket server');
+    };
+
+</script>
+</body>
+</html>
